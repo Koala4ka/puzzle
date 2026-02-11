@@ -19,7 +19,7 @@ object PuzzleApp {
       sys.exit(1)
     }
 
-    val lines = Using.resource(Source.fromFile(filename, "UTF-8")) { source =>
+    val lines: Array[String] = Using.resource(Source.fromFile(filename, "UTF-8")) { source =>
       source.getLines()
         .map(_.trim)
         .filter(_.matches("""\d+"""))
@@ -31,7 +31,7 @@ object PuzzleApp {
       sys.exit(1)
     }
 
-    val fragments = lines.map { s =>
+    val fragments: Array[Fragment] = lines.map { s =>
       Fragment(
         from = toInt2(s.take(2)),
         to = toInt2(s.takeRight(2)),
@@ -39,33 +39,33 @@ object PuzzleApp {
       )
     }
 
-    val graph = Array.fill(100)(List.empty[Int])
+    val graph: Array[List[Int]] = Array.fill(100)(List.empty)
     fragments.indices.foreach { i =>
       graph(fragments(i).from) ::= i
     }
 
-    val used = Array.fill(fragments.length)(false)
-    var bestLength = 0
-
-    def dfs(node: Int, current: Int): Unit = {
-      if (current > bestLength)
-        bestLength = current
-
-      for (i <- graph(node)) {
-        if (!used(i)) {
-          used(i) = true
-          dfs(fragments(i).to, current + fragments(i).weight)
-          used(i) = false
-        }
+    def dfs(node: Int, used: Set[Int], currentSequence: List[Int]): (Int, List[Int]) = {
+      val successors = graph(node).filterNot(used.contains)
+      if (successors.isEmpty) {
+        val length = currentSequence.map(i => fragments(i).weight).sum + 2
+        (length, currentSequence)
+      } else {
+        successors
+          .map { i =>
+            dfs(fragments(i).to, used + i, currentSequence :+ i)
+          }
+          .maxBy(_._1)
       }
     }
 
-    fragments.indices.foreach { i =>
-      used(i) = true
-      dfs(fragments(i).to, fragments(i).weight)
-      used(i) = false
+    val allResults = fragments.indices.map { i =>
+      dfs(fragments(i).to, Set(i), List(i))
     }
 
-    println(s"Max length: ${bestLength + 2}")
+    val (maxLength, bestSequence) = allResults.maxBy(_._1)
+    val resultSequence = bestSequence.map(i => lines(i)).mkString("")
+
+    println(s"Max length: $maxLength")
+    println(s"Max sequence: $resultSequence")
   }
 }
